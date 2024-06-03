@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"flag"
 	"os"
 	"path"
 	"strings"
@@ -13,12 +14,19 @@ import (
 
 var header = []string{"Repo", "Main Branch", "Current Branch"}
 
+var diffs bool
+
 func main() {
-	if len(os.Args) == 1 {
+	flag.BoolVar(&diffs, "d", false, "Only display diffs")
+
+	flag.Parse()
+	dirs := flag.Args()
+
+	if len(dirs) == 0 {
 		printData(".")
 		os.Exit(0)
 	}
-	for _, base := range os.Args[1:] {
+	for _, base := range dirs {
 		printData(base)
 	}
 }
@@ -64,7 +72,9 @@ func getBranchInfo(base string) [][]string {
 				panic(err)
 			}
 			d[2] = last(h.Name().String(), "/")
-			data = append(data, d)
+			if !diffs || !strings.EqualFold(d[1], d[2]) {
+				data = append(data, d)
+			}
 		}
 	}
 	return data
