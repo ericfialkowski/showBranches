@@ -3,6 +3,7 @@ module github.com/ericfialkowski/showBranches
 go 1.22.2
 
 require (
+	github.com/ericfialkowski/env v1.0.1
 	github.com/go-git/go-git/v5 v5.12.0
 	github.com/pterm/pterm v0.12.79
 )
