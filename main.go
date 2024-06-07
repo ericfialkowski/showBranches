@@ -14,20 +14,23 @@ import (
 	"github.com/pterm/pterm"
 )
 
-var header = []string{"Directory", "Repo", "Main Branch", "Current Branch"}
-
 const (
-	DIR_HEADER  = iota
-	REPO_HEADER = iota
-	MAIN_HEADER = iota
-	CURR_HEADER = iota
+	DirHeader  = iota
+	RepoHeader = iota
+	MainHeader = iota
+	CurrHeader = iota
 )
 
-var diffs bool
+var (
+	header        = []string{"Directory", "Repo", "Main Branch", "Current Branch"}
+	onlyShowDiffs bool
+	showNoRemotes bool
+)
 
 func main() {
 	defaultBase := env.StringOrDefault("SHOWBRANCHES_DEFAULT", ".")
-	flag.BoolVar(&diffs, "d", false, "Only display diffs")
+	flag.BoolVar(&onlyShowDiffs, "d", false, "Only display dirs that are on different branched")
+	flag.BoolVar(&showNoRemotes, "l", false, "Include dirs without remote repositories")
 
 	flag.Parse()
 	dirs := flag.Args()
@@ -71,43 +74,49 @@ func getBranchInfo(base string) [][]string {
 
 			d := make([]string, 4)
 
-			d[DIR_HEADER] = dir.Name()
+			d[DirHeader] = dir.Name()
 			if dir.Name() == ".git" {
 				p, err := filepath.Abs(dir.Name())
 				if err != nil {
 					panic(err) // shouldn't get an error trying to get full path
 				}
 				parts := strings.Split(p, string(os.PathSeparator))
-				d[DIR_HEADER] = parts[len(parts)-2]
+				d[DirHeader] = parts[len(parts)-2]
 			}
 			if c.Remotes["origin"] != nil && len(c.Remotes["origin"].URLs) > 0 {
-				d[REPO_HEADER] = c.Remotes["origin"].URLs[0]
+				d[RepoHeader] = c.Remotes["origin"].URLs[0]
 			} else {
-				d[REPO_HEADER] = "<no remote>"
+				if !showNoRemotes {
+					continue
+				}
+				d[RepoHeader] = "<no remote>"
 			}
 			ref, err := r.Reference("refs/remotes/origin/HEAD", false)
 			if err != nil {
 				if errors.Is(err, plumbing.ErrReferenceNotFound) {
-					d[MAIN_HEADER] = "<no remote>"
+					if !showNoRemotes {
+						continue
+					}
+					d[MainHeader] = "<no remote>"
 				} else {
 					panic(err)
 				}
 			} else {
-				d[MAIN_HEADER] = last(ref.Target().String(), "/")
+				d[MainHeader] = last(ref.Target().String(), "/")
 			}
 
 			h, err := r.Head()
 			if err != nil {
 				if errors.Is(err, plumbing.ErrReferenceNotFound) {
-					d[CURR_HEADER] = "<no remote>"
+					d[CurrHeader] = "<no branch>"
 				} else {
 					panic(err)
 				}
 			} else {
-				d[CURR_HEADER] = last(h.Name().String(), "/")
+				d[CurrHeader] = last(h.Name().String(), "/")
 			}
 
-			if !diffs || !strings.EqualFold(d[MAIN_HEADER], d[CURR_HEADER]) {
+			if !onlyShowDiffs || !strings.EqualFold(d[MainHeader], d[CurrHeader]) {
 				data = append(data, d)
 			}
 		}
