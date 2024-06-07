@@ -16,6 +16,13 @@ import (
 
 var header = []string{"Directory", "Repo", "Main Branch", "Current Branch"}
 
+const (
+	DIR_HEADER  = iota
+	REPO_HEADER = iota
+	MAIN_HEADER = iota
+	CURR_HEADER = iota
+)
+
 var diffs bool
 
 func main() {
@@ -28,8 +35,8 @@ func main() {
 	if len(dirs) == 0 {
 		for _, s := range strings.Split(defaultBase, " ") {
 			printData(s)
-			os.Exit(0)
 		}
+		os.Exit(0)
 	}
 	for _, base := range dirs {
 		printData(base)
@@ -64,34 +71,43 @@ func getBranchInfo(base string) [][]string {
 
 			d := make([]string, 4)
 
-			d[0] = dir.Name()
+			d[DIR_HEADER] = dir.Name()
 			if dir.Name() == ".git" {
 				p, err := filepath.Abs(dir.Name())
 				if err != nil {
 					panic(err) // shouldn't get an error trying to get full path
 				}
 				parts := strings.Split(p, string(os.PathSeparator))
-				d[0] = parts[len(parts)-2]
+				d[DIR_HEADER] = parts[len(parts)-2]
 			}
-			d[1] = c.Remotes["origin"].URLs[0]
+			if c.Remotes["origin"] != nil && len(c.Remotes["origin"].URLs) > 0 {
+				d[REPO_HEADER] = c.Remotes["origin"].URLs[0]
+			} else {
+				d[REPO_HEADER] = "<no remote>"
+			}
 			ref, err := r.Reference("refs/remotes/origin/HEAD", false)
 			if err != nil {
 				if errors.Is(err, plumbing.ErrReferenceNotFound) {
-					continue
+					d[MAIN_HEADER] = "<no remote>"
+				} else {
+					panic(err)
 				}
-				panic(err)
+			} else {
+				d[MAIN_HEADER] = last(ref.Target().String(), "/")
 			}
-			d[2] = last(ref.Target().String(), "/")
 
 			h, err := r.Head()
 			if err != nil {
 				if errors.Is(err, plumbing.ErrReferenceNotFound) {
-					continue
+					d[CURR_HEADER] = "<no remote>"
+				} else {
+					panic(err)
 				}
-				panic(err)
+			} else {
+				d[CURR_HEADER] = last(h.Name().String(), "/")
 			}
-			d[3] = last(h.Name().String(), "/")
-			if !diffs || !strings.EqualFold(d[1], d[2]) {
+
+			if !diffs || !strings.EqualFold(d[MAIN_HEADER], d[CURR_HEADER]) {
 				data = append(data, d)
 			}
 		}
